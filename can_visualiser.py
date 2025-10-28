@@ -26,6 +26,60 @@ def setFonts(fontsize=18, axisLW=1, ticksize=5, tick_direction='out', padding=5,
     plt.rc('figure', titlesize=fontsize)                                                            # fontsize of the figure title
     plt.rc('mathtext', fontset='custom', rm='serif')                                                # raw text in math environment will be set to serif
 
+def visualise(file_path: Path, output_path: Path, title: str, zoom: bool):
+    """
+    Generates and saves the feature plots for a single candidate.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the candidate's .h5 file.
+    output_path : Path
+        Path to save the output PNG image.
+    title : str
+        The title for the plot.
+    zoom : bool
+        Whether to apply a central zoom to the data.
+    """
+    with h5py.File(file_path, 'r') as f:
+        dt = f['data_freq_time'][:].T
+        if zoom:
+            dt = dt[:, 65:-65]  # Focus on central time bins
+
+        mean_profile = dt.mean(axis=0)
+        if mean_profile.max() > 0:
+            mean_profile /= mean_profile.max()
+
+        fig = plt.figure(figsize=(16, 12))
+        fig.suptitle(title)
+        gs = fig.add_gridspec(2, 2, height_ratios=[1, 3])
+        ax1 = fig.add_subplot(gs[0, :])
+        ax2 = fig.add_subplot(gs[1, 0])
+        ax3 = fig.add_subplot(gs[1, 1])
+
+        # top: 1D mean profile
+        ax1.plot(mean_profile)
+        ax1.set_xlabel(r'$\Delta t$')
+        ax1.set_yticks([])  # Sets an empty list for y-ticks
+        ax1.set_ylabel('')  # Sets an empty string for the y-label
+
+        # middle: freq-time image (shares x-axis with top)
+        ax2.imshow(dt, origin='lower', aspect='equal')
+        ax2.set_ylabel('Frequency bins')
+        ax2.set_xlabel(r'$\Delta t$')
+
+        # bottom: dm-time image (separate x-axis)
+        data_dm_time = f['data_dm_time'][:]
+        if zoom:  # Focus on central DM and time bins
+            data_dm_time = data_dm_time[65:-65, 65:-65]
+        ax3.imshow(data_dm_time, aspect='equal')
+        ax3.set_ylabel('DM bins')
+        ax3.set_xlabel(r'$\Delta t$')
+
+        fig.tight_layout()
+        fig.savefig(output_path, bbox_inches='tight')
+        plt.close(fig)
+
 @app.default
 def find(
     obs_dir: Annotated[Path, Parameter(name=["-o", "--obs-dir"], help="Name of the observation directory. If provided, --csv-file and --data-dir are not needed")] = None,
@@ -63,13 +117,14 @@ def find(
     ) as progress:
         task = progress.add_task("process", total=len(triggers))
         for i in range(len(triggers)):
-            fname = triggers['id'][i]+".h5"
+            cand_id = triggers['id'][i]
             beam = triggers['beam'][i]
+            fname = cand_id + ".h5"
             beam_data_dir = data_dir / f"BM{beam}/"
 
             try:
                 file_path = next(
-                    os.path.join(root, fname)
+                    Path(root) / fname
                     for root, _, files in os.walk(beam_data_dir)
                     if fname in files
                 )
@@ -78,44 +133,9 @@ def find(
                 progress.advance(task)
                 continue
 
-            with h5py.File(file_path, 'r') as f:
-                dt = f['data_freq_time'][:].T
-                if zoom:
-                    dt = dt[:, 65:-65]  # Focus on central time bins
-
-                mean_profile = dt.mean(axis=0) 
-                mean_profile /= mean_profile.max()
-
-                fig = plt.figure(figsize=(16, 12))
-                fig.suptitle(f"#{i+1} {triggers['id'][i]}, BM {triggers['beam'][i]}")
-                gs = fig.add_gridspec(2, 2, height_ratios=[1, 3])
-                ax1 = fig.add_subplot(gs[0, :])
-                ax2 = fig.add_subplot(gs[1, 0])
-                ax3 = fig.add_subplot(gs[1, 1])
-
-                # top: 1D mean profile
-                ax1.plot(mean_profile)
-                ax1.set_xlabel(r'$\Delta t$')
-                ax1.set_yticks([])  # Sets an empty list for y-ticks
-                ax1.set_ylabel('')  # Sets an empty string for the y-label
-
-                # middle: freq-time image (shares x-axis with top)
-                im1 = ax2.imshow(dt, origin='lower', aspect='equal')
-                ax2.set_ylabel('Frequency bins')
-                ax2.set_xlabel(r'$\Delta t$')
-
-                # bottom: dm-time image (separate x-axis)
-                data_dm_time = f['data_dm_time'][:]
-                if zoom:  # Focus on central DM and time bins
-                    data_dm_time = data_dm_time[65:-65, 65:-65]
-                im2 = ax3.imshow(data_dm_time, aspect='equal')
-                ax3.set_ylabel('DM bins')
-                ax3.set_xlabel(r'$\Delta t$')
-
-                fig.tight_layout()
-                output_path = output_dir / f"{i+1}_{triggers['id'][i]}_{name}.png"
-                fig.savefig(output_path, bbox_inches='tight')
-                plt.close(fig)
+            title = f"#{i+1} {cand_id}, BM {beam}"
+            output_path = output_dir / f"{i+1}_{cand_id}_{name}.png"
+            visualise(file_path, output_path, title, zoom)
 
             progress.advance(task)
 
@@ -133,53 +153,13 @@ def see(
         return
     
     cand_name = cand_file.stem
-    beam = cand_file.parent.parent.name.replace("BM", "")
-    data_dir = cand_file.parent.parent.parent.parent
-
+    beam = cand_file.parent.parent.name[2:]
     name = "zoomed-in" if zoom else "full"
-    output_dir = data_dir / "Triggered_candidates"
-    os.makedirs(output_dir, exist_ok=True)
-
     console.log(f"Processing candidate [cyan]{cand_name}[/cyan] from beam [cyan]{beam}[/cyan]...")
 
-    with h5py.File(cand_file, 'r') as f:
-        dt = f['data_freq_time'][:].T
-        if zoom:
-            dt = dt[:, 65:-65]  # Focus on central time bins
-
-        mean_profile = dt.mean(axis=0)
-        mean_profile /= mean_profile.max()
-
-        fig = plt.figure(figsize=(16, 12))
-        fig.suptitle(f"{cand_name}, BM {beam}")
-        gs = fig.add_gridspec(2, 2, height_ratios=[1, 3])
-        ax1 = fig.add_subplot(gs[0, :])
-        ax2 = fig.add_subplot(gs[1, 0])
-        ax3 = fig.add_subplot(gs[1, 1])
-
-        # top: 1D mean profile
-        ax1.plot(mean_profile)
-        ax1.set_xlabel(r'$\Delta t$')
-        ax1.set_yticks([])  # Sets an empty list for y-ticks
-        ax1.set_ylabel('')  # Sets an empty string for the y-label
-
-        # middle: freq-time image (shares x-axis with top)
-        ax2.imshow(dt, origin='lower', aspect='equal')
-        ax2.set_ylabel('Frequency bins')
-        ax2.set_xlabel(r'$\Delta t$')
-
-        # bottom: dm-time image (separate x-axis)
-        data_dm_time = f['data_dm_time'][:]
-        if zoom:  # Focus on central DM and time bins
-            data_dm_time = data_dm_time[65:-65, 65:-65]
-        ax3.imshow(data_dm_time, aspect='equal')
-        ax3.set_ylabel('DM bins')
-        ax3.set_xlabel(r'$\Delta t$')
-
-        fig.tight_layout()
-        output_path = output_dir / f"{cand_name}_{name}.png"
-        fig.savefig(output_path, bbox_inches='tight')
-        plt.close(fig)
+    title = f"{cand_name}, BM {beam}"
+    output_path = cand_file.parent / f"{cand_name}_{name}.png"
+    visualise(cand_file, output_path, title, zoom)
 
     console.log(f"Successfully generated plot: [green]{output_path}[/green]")
 

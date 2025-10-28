@@ -83,18 +83,16 @@ pip install pandas matplotlib h5py rich cyclopts
 
 ## Output
 
-The script generates a PNG image for each candidate, saved in a directory named `Triggered_candidates` inside the data directory.
-
-Each image contains three subplots:
+The script generates a PNG image for each candidate. Each image contains three subplots:
 
 1. **Top Panel:** The mean pulse profile across all frequency channels.
 2. **Bottom-Left Panel:** The frequency-time dynamic spectrum.
 3. **Bottom-Right Panel:** The DM-time plot, i.e., the DM transform.
 
-The filename of the output image depends on the command used:
+The location and the filename of the output image depends on the command used:
 
-- **`find` command:** `<index>_<candidate_id>_<zoom_status>.png`
-- **`see` command:** `<candidate_name>_<zoom_status>.png`
+- **`find` command:** `<data_dir>/Triggered_candidates/<index>_<candidate_id>_<zoom_status>.png`
+- **`see` command:** `$(dirname <cand_file>)/<candidate_name>_<zoom_status>.png`
 
 ## License
 

@@ -27,13 +27,13 @@ def setFonts(fontsize=18, axisLW=1, ticksize=5, tick_direction='out', padding=5,
     plt.rc('mathtext', fontset='custom', rm='serif')                                                # raw text in math environment will be set to serif
 
 @app.default
-def main(
-    obs_dir: Annotated[Path, Parameter(name=["-o", "--obs-dir"], help="Name of the observation directory")] = None,
-    csv_file: Annotated[Path, Parameter(name=["-c", "--csv-file"], help="Path to classification_results.csv")] = None,
-    data_dir: Annotated[Path, Parameter(name=["-d", "--data-dir"], help="Root FRBPipeData directory (contains BMxx subdirs)")] = None,
-    zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="Apply central zoom (slice out edges) when True")] = False,
+def find(
+    obs_dir: Annotated[Path, Parameter(name=["-o", "--obs-dir"], help="Name of the observation directory. If provided, --csv-file and --data-dir are not needed")] = None,
+    csv_file: Annotated[Path, Parameter(name=["-c", "--csv-file"], help="Path to classification_results.csv. Required if -o is not provided.")] = None,
+    data_dir: Annotated[Path, Parameter(name=["-d", "--data-dir"], help="Path to the root `FRBPipeData` directory, which contains the `BMxx` subdirectories. Required if `-o` is not provided.")] = None,
+    zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="(Optional) If specified, the script will zoom in on the central part of the plots.")] = False,
 ):
-    """Generate triggered candidates' feature plots. Either --obs-dir or both --csv-file and --data-dir must be provided."""
+    """Generate feature plots of all the triggered candidates. Either --obs-dir or both --csv-file and --data-dir must be provided."""
     setFonts()
 
     if obs_dir:
@@ -45,7 +45,8 @@ def main(
         raise ValueError("Either --obs-dir or both --csv-file and --data-dir must be provided.")
 
     name = "zoomed-in" if zoom else "full"
-    os.makedirs(f"{data_dir}/Triggered_candidates", exist_ok=True)
+    output_dir = data_dir / "Triggered_candidates"
+    os.makedirs(output_dir, exist_ok=True)
 
     triggers = pd.read_csv(csv_file, header=0, skiprows=[1,2])
     triggers=triggers.to_records(index=False)
@@ -64,7 +65,7 @@ def main(
         for i in range(len(triggers)):
             fname = triggers['id'][i]+".h5"
             beam = triggers['beam'][i]
-            beam_data_dir = f"{data_dir}/BM{beam}/"
+            beam_data_dir = data_dir / f"BM{beam}/"
 
             try:
                 file_path = next(
@@ -112,10 +113,75 @@ def main(
                 ax3.set_xlabel(r'$\Delta t$')
 
                 fig.tight_layout()
-                fig.savefig(f"{data_dir}/Triggered_candidates/{i+1}_{triggers['id'][i]}_{name}.png", bbox_inches='tight')
+                output_path = output_dir / f"{i+1}_{triggers['id'][i]}_{name}.png"
+                fig.savefig(output_path, bbox_inches='tight')
                 plt.close(fig)
 
             progress.advance(task)
+
+@app.command()
+def see(
+    cand_file: Annotated[Path, Parameter(name=["-c", "--cand-file"], help="Path to the candidate (.h5) file. The candidate name, beam, and data directory are inferred from this path.")],
+    zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="(Optional) If specified, the script will zoom in on the central part of the plots.")] = False,
+):
+    """Generate feature plots of a single candidate from if the path to the .h5 file is known."""
+    setFonts()
+    console = Console()
+
+    if not cand_file.exists():
+        console.log(f"[bold red]Error: File not found at {cand_file}[/bold red]")
+        return
+    
+    cand_name = cand_file.stem
+    beam = cand_file.parent.parent.name.replace("BM", "")
+    data_dir = cand_file.parent.parent.parent.parent
+
+    name = "zoomed-in" if zoom else "full"
+    output_dir = data_dir / "Triggered_candidates"
+    os.makedirs(output_dir, exist_ok=True)
+
+    console.log(f"Processing candidate [cyan]{cand_name}[/cyan] from beam [cyan]{beam}[/cyan]...")
+
+    with h5py.File(cand_file, 'r') as f:
+        dt = f['data_freq_time'][:].T
+        if zoom:
+            dt = dt[:, 65:-65]  # Focus on central time bins
+
+        mean_profile = dt.mean(axis=0)
+        mean_profile /= mean_profile.max()
+
+        fig = plt.figure(figsize=(16, 12))
+        fig.suptitle(f"{cand_name}, BM {beam}")
+        gs = fig.add_gridspec(2, 2, height_ratios=[1, 3])
+        ax1 = fig.add_subplot(gs[0, :])
+        ax2 = fig.add_subplot(gs[1, 0])
+        ax3 = fig.add_subplot(gs[1, 1])
+
+        # top: 1D mean profile
+        ax1.plot(mean_profile)
+        ax1.set_xlabel(r'$\Delta t$')
+        ax1.set_yticks([])  # Sets an empty list for y-ticks
+        ax1.set_ylabel('')  # Sets an empty string for the y-label
+
+        # middle: freq-time image (shares x-axis with top)
+        ax2.imshow(dt, origin='lower', aspect='equal')
+        ax2.set_ylabel('Frequency bins')
+        ax2.set_xlabel(r'$\Delta t$')
+
+        # bottom: dm-time image (separate x-axis)
+        data_dm_time = f['data_dm_time'][:]
+        if zoom:  # Focus on central DM and time bins
+            data_dm_time = data_dm_time[65:-65, 65:-65]
+        ax3.imshow(data_dm_time, aspect='equal')
+        ax3.set_ylabel('DM bins')
+        ax3.set_xlabel(r'$\Delta t$')
+
+        fig.tight_layout()
+        output_path = output_dir / f"{cand_name}_{name}.png"
+        fig.savefig(output_path, bbox_inches='tight')
+        plt.close(fig)
+
+    console.log(f"Successfully generated plot: [green]{output_path}[/green]")
 
 if __name__ == '__main__':
     app()

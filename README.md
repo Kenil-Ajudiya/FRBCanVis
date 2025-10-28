@@ -22,27 +22,47 @@ SPOTLIGHT (Search for Pulsars and Transients with uGMRT Low-frequency Telescope)
 
 ## Usage
 
-The `can_visualiser.py` script can be run in two ways:
+The `can_visualiser.py` script provides two main commands:
 
-1. **By providing the observation directory:**
-   This is the recommended method. The script will automatically determine the paths to the necessary files based on the SPOTLIGHT server's directory structure.
+- `find`: To find and plot all candidates from a `classification_results.csv` file.
+- `see`: To plot a single, specific candidate by providing its direct path information.
 
-    ```bash
-    python can_visualiser.py -o <observation_directory_name>
-    ```
+### `find` Command
 
-2. **By providing the full paths to the data files:**
-   This method can be used if your data is not in the standard directory structure.
+This is the default command for batch processing all candidates listed in the pipeline's output CSV.
 
-    ```bash
-    python can_visualiser.py -c <path_to_csv_file> -d <path_to_data_dir>
-    ```
+**Option 1: By providing the observation directory (recommended):**
+
+```bash
+python can_visualiser.py find -o <observation_directory_name>
+```
+
+**Option 2: By providing the full paths to the data files:**
+
+```bash
+python can_visualiser.py find -c <path_to_csv_file> -d <path_to_data_dir>
+```
+
+### `see` Command
+
+This command is for quickly visualizing a single candidate by providing the direct path to its `.h5` file.
+
+```bash
+python can_visualiser.py see -c <path_to_candidate_file.h5>
+```
 
 ### Arguments
+
+#### `find` Arguments
 
 - `-o`, `--obs-dir`: Name of the observation directory. If provided, `--csv-file` and `--data-dir` are not needed.
 - `-c`, `--csv-file`: Path to the `classification_results.csv` file. Required if `-o` is not provided.
 - `-d`, `--data-dir`: Path to the root `FRBPipeData` directory, which contains the `BMxx` subdirectories. Required if `-o` is not provided.
+- `-z`, `--zoom`: (Optional) If specified, the script will zoom in on the central part of the plots.
+
+#### `see` Arguments
+
+- `-c`, `--cand-file`: The full path to the candidate's `.h5` file. The candidate name, beam, and data directory are inferred from this path.
 - `-z`, `--zoom`: (Optional) If specified, the script will zoom in on the central part of the plots.
 
 ## Dependencies
@@ -63,7 +83,7 @@ pip install pandas matplotlib h5py rich cyclopts
 
 ## Output
 
-The script generates a PNG image for each candidate listed in the input CSV file. The output images are saved in a directory named `Triggered_candidates` inside the specified data directory (`--data-dir`).
+The script generates a PNG image for each candidate, saved in a directory named `Triggered_candidates` inside the data directory.
 
 Each image contains three subplots:
 
@@ -71,7 +91,10 @@ Each image contains three subplots:
 2. **Bottom-Left Panel:** The frequency-time dynamic spectrum.
 3. **Bottom-Right Panel:** The DM-time plot, i.e., the DM transform.
 
-The filename of each output image is in the format: `<index>_<candidate_id>_<zoom_status>.png`.
+The filename of the output image depends on the command used:
+
+- **`find` command:** `<index>_<candidate_id>_<zoom_status>.png`
+- **`see` command:** `<candidate_name>_<zoom_status>.png`
 
 ## License
 

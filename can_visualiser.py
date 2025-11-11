@@ -159,6 +159,50 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
         close(fig)
 
 @app.default
+def quickly_plot(
+    obs_dir: Annotated[Path, Parameter(name=["-o", "--obs-dir"], help="Name of the observation directory. If provided, --csv-file and --data-dir are not needed")] = None,
+    csv_file: Annotated[Path, Parameter(name=["-c", "--csv-file"], help="Path to classification_results.csv. Required if -o is not provided.")] = None,
+    data_dir: Annotated[Path, Parameter(name=["-d", "--data-dir"], help="Path to the root `FRBPipeData` directory, which contains the `BMxx` subdirectories. Required if `-o` is not provided.")] = None,
+    zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="(Optional) If specified, the script will zoom in on the central part of the plots.")] = False,
+):
+    """Generate feature plots of all the triggered candidates. Either --obs-dir or both --csv-file and --data-dir must be provided."""
+    setFonts()
+
+    if obs_dir:
+        if csv_file is None:
+            csv_file = Path(f"/lustre_archive/spotlight/data/{obs_dir}/DetClassCsv/classification_results.csv")
+        if data_dir is None:
+            data_dir = Path(f"/lustre_data/spotlight/data/{obs_dir}/FRBPipeData/")
+    elif csv_file is None or data_dir is None:
+        raise ValueError("Either --obs-dir or both --csv-file and --data-dir must be provided.")
+
+    name = "zoomed-in" if zoom else "full"
+    output_dir = data_dir / "Triggered_candidates"
+    makedirs(output_dir, exist_ok=True)
+
+    triggers = read_csv(csv_file, header=0, skiprows=[1,2])
+    triggers=triggers.to_records(index=False)
+
+    console = Console()
+    with Progress(
+        TextColumn("[bold cyan]Processing triggers"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("process", total=len(triggers))
+        for i in range(len(triggers)):
+            cand_id = triggers['id'][i]
+            file_path = data_dir / f"BM{triggers['beam'][i]}/{triggers['bufcount'][i]}/{triggers['id'][i]}.h5"
+
+            output_path = output_dir / f"{i+1}_{cand_id}_{name}.png"
+            visualise(file_path, output_path, zoom)
+
+            progress.advance(task)
+
 def find(
     obs_dir: Annotated[Path, Parameter(name=["-o", "--obs-dir"], help="Name of the observation directory. If provided, --csv-file and --data-dir are not needed")] = None,
     csv_file: Annotated[Path, Parameter(name=["-c", "--csv-file"], help="Path to classification_results.csv. Required if -o is not provided.")] = None,

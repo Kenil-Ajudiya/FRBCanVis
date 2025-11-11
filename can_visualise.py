@@ -203,6 +203,7 @@ def quickly_plot(
 
             progress.advance(task)
 
+@app.command
 def find(
     obs_dir: Annotated[Path, Parameter(name=["-o", "--obs-dir"], help="Name of the observation directory. If provided, --csv-file and --data-dir are not needed")] = None,
     csv_file: Annotated[Path, Parameter(name=["-c", "--csv-file"], help="Path to classification_results.csv. Required if -o is not provided.")] = None,

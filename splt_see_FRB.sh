@@ -3,7 +3,7 @@
 # A wrapper script to easily run the 'see' command of can_visualiser.py
 
 TDSOFT=/lustre_archive/apps/tdsoft/
-PYTHON_APP="$TDSOFT/FRBCanVis/can_visualiser.py"
+PYTHON_APP="$TDSOFT/FRBCanVis/can_visualise.py"
 
 
 # --- Argument Check ---

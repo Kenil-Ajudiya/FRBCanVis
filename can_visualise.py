@@ -29,6 +29,63 @@ def setFonts(fontsize=18, axisLW=1, ticksize=5, tick_direction='out', padding=5,
     rc('figure', titlesize=fontsize)                                                            # fontsize of the figure title
     rc('mathtext', fontset='custom', rm='serif')                                                # raw text in math environment will be set to serif
 
+def write_txt(obs_metadata: dict, cand_metadata: dict, file_path: Path):
+    ra = obs_metadata['ra'] * 12 / pi
+    ra_h = int(ra)
+    ra = (ra - ra_h) * 60
+    ra_m = int(ra)
+    ra_s = (ra - ra_m) * 60
+    ra_str = f"{ra_h}h{ra_m}m{ra_s:.2f}s"
+
+    dec = obs_metadata['dec'] * 180 / pi
+    dec_h = int(dec)
+    dec = (dec - dec_h) * 60
+    dec_m = int(dec)
+    dec_s = (dec - dec_m) * 60
+    dec_str = f"{dec_h}d{abs(dec_m)}m{abs(dec_s):.2f}s"
+
+    beam = obs_metadata['beamid'] * obs_metadata['nbeamspernode'] + obs_metadata['beamid']
+
+    beam_ra = cand_metadata['ra'] * 12 / pi
+    beam_ra_h = int(beam_ra)
+    beam_ra = (beam_ra - beam_ra_h) * 60
+    beam_ra_m = int(beam_ra)
+    beam_ra_s = (beam_ra - beam_ra_m) * 60
+    beam_ra_str = f"{beam_ra_h}h{beam_ra_m}m{beam_ra_s:.2f}s"
+
+    beam_dec = cand_metadata['dec'] * 180 / pi
+    beam_dec_h = int(beam_dec)
+    beam_dec = (beam_dec - beam_dec_h) * 60
+    beam_dec_m = int(beam_dec)
+    beam_dec_s = (beam_dec - beam_dec_m) * 60
+    beam_dec_str = f"{beam_dec_h}d{abs(beam_dec_m)}m{abs(beam_dec_s):.2f}s"
+
+    labels = ['source','ra_j2000','dec_j2000','beam_no','burst_ra','burst_dec','mjd','toa','dm','snr','width','t_samp','freq_low','freq_high','band_width','probability']
+
+    fields = [str(obs_metadata['source']),
+                ra_str,
+                dec_str,
+                str(beam),
+                beam_ra_str,
+                beam_dec_str,
+                str(cand_metadata['mjd']),
+                f"{cand_metadata['tbegist']}",
+                f"{cand_metadata['dm']}",
+                f"{cand_metadata['snr']}",
+                f"{cand_metadata['width']}",
+                f"{obs_metadata['dt']}",
+                str(round(obs_metadata['fl'])),
+                str(round(obs_metadata['fh'])),
+                str(obs_metadata['bw']),
+                f"{cand_metadata['probability']:.2f}"]
+
+    out_lines = []
+    for k, v in zip(labels, fields):
+        out_lines.append(f"{k}={v}")
+
+    with open(file_path, 'w') as fo:
+        fo.write('\n'.join(out_lines))
+
 def visualise(file_path: Path, output_path: Path, zoom: bool):
     """
     Generates and saves the feature plots for a single candidate.
@@ -60,6 +117,7 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
     with File(file_path, 'r') as f:
         cand_metadata = dict(f.attrs)
         obs_metadata = dict(f['extras'].attrs)
+        write_txt(obs_metadata, cand_metadata, file_path.parent / (file_path.stem + ".txt"))
         ra = obs_metadata['ra'] * 12 / pi
         ra_h = int(ra)
         ra = (ra - ra_h) * 60
@@ -166,15 +224,13 @@ def quickly_plot(
     zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="(Optional) If specified, the script will zoom in on the central part of the plots.")] = False,
 ):
     """Generate feature plots of all the triggered candidates. Either --obs-dir or both --csv-file and --data-dir must be provided."""
-    setFonts()
-
-    if obs_dir:
+    if obs_dir is None and (csv_file is None or data_dir is None):
+        raise ValueError("Either --obs-dir or both --csv-file and --data-dir must be provided.")
+    else:
         if csv_file is None:
             csv_file = Path(f"/lustre_archive/spotlight/data/{obs_dir}/DetClassCsv/classification_results.csv")
         if data_dir is None:
             data_dir = Path(f"/lustre_data/spotlight/data/{obs_dir}/FRBPipeData/")
-    elif csv_file is None or data_dir is None:
-        raise ValueError("Either --obs-dir or both --csv-file and --data-dir must be provided.")
 
     name = "zoomed-in" if zoom else "full"
     output_dir = data_dir / "Triggered_candidates"
@@ -211,8 +267,6 @@ def find(
     zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="(Optional) If specified, the script will zoom in on the central part of the plots.")] = False,
 ):
     """Generate feature plots of all the triggered candidates. Either --obs-dir or both --csv-file and --data-dir must be provided."""
-    setFonts()
-
     if obs_dir:
         if csv_file is None:
             csv_file = Path(f"/lustre_archive/spotlight/data/{obs_dir}/DetClassCsv/classification_results.csv")
@@ -267,7 +321,6 @@ def see(
     zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="(Optional) If specified, the script will zoom in on the central part of the plots.")] = False,
 ):
     """Generate feature plots of a single candidate from if the path to the .h5 file is known."""
-    setFonts()
     console = Console()
 
     if not cand_file.exists():
@@ -285,4 +338,5 @@ def see(
     console.log(f"Successfully generated plot: [green]{output_path}[/green]")
 
 if __name__ == '__main__':
+    setFonts()
     app()

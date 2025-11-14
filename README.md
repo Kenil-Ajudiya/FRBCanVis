@@ -22,25 +22,42 @@ SPOTLIGHT (Search for Pulsars and Transients with uGMRT Low-frequency Telescope)
 
 ## Usage
 
-The `can_visualiser.py` script provides two main commands:
+The `can_visualise.py` script provides three main commands:
 
-- `find`: To find and plot all candidates from a `classification_results.csv` file.
+- `quickly_plot` (default): To quickly plot all candidates from a `classification_results.csv` file if its full path can be inferred.
+- `find`: To find and plot all candidates from a `classification_results.csv` file by searching for them in the directory structure.
 - `see`: To plot a single, specific candidate by providing its direct path information.
 
-### `find` Command
+### Default Command (`quickly_plot`)
 
-This is the default command for batch processing all candidates listed in the pipeline's output CSV.
+This is the default command for batch processing all candidates listed in the pipeline's output CSV. It constructs the path to each candidate file directly, so it is faster than `find` but works only if the `classification_results.csv` file has `bufcount` as the last column. You can run it by not specifying any command.
 
 **Option 1: By providing the observation directory (recommended):**
 
 ```bash
-python can_visualiser.py find -o <observation_directory_name>
+python can_visualise.py -o <observation_directory_name>
 ```
 
 **Option 2: By providing the full paths to the data files:**
 
 ```bash
-python can_visualiser.py find -c <path_to_csv_file> -d <path_to_data_dir>
+python can_visualise.py -c <path_to_csv_file> -d <path_to_data_dir>
+```
+
+### `find` Command
+
+This command is for batch processing all candidates listed in the pipeline's output CSV. It robustly finds candidate files by walking through directories, which can be slower but more reliable if the exact path is not known.
+
+**Option 1: By providing the observation directory (recommended):**
+
+```bash
+python can_visualise.py find -o <observation_directory_name>
+```
+
+**Option 2: By providing the full paths to the data files:**
+
+```bash
+python can_visualise.py find -c <path_to_csv_file> -d <path_to_data_dir>
 ```
 
 ### `see` Command
@@ -48,12 +65,12 @@ python can_visualiser.py find -c <path_to_csv_file> -d <path_to_data_dir>
 This command is for quickly visualizing a single candidate by providing the direct path to its `.h5` file.
 
 ```bash
-python can_visualiser.py see -c <path_to_candidate_file.h5>
+python can_visualise.py see -c <path_to_candidate_file.h5>
 ```
 
 ### Arguments
 
-#### `find` Arguments
+#### `quickly_plot (default)` and `find` Arguments
 
 - `-o`, `--obs-dir`: Name of the observation directory. If provided, `--csv-file` and `--data-dir` are not needed.
 - `-c`, `--csv-file`: Path to the `classification_results.csv` file. Required if `-o` is not provided.
@@ -93,6 +110,8 @@ The location and the filename of the output image depends on the command used:
 
 - **`find` command:** `<data_dir>/Triggered_candidates/<index>_<candidate_id>_<zoom_status>.png`
 - **`see` command:** `$(dirname <cand_file>)/<candidate_name>_<zoom_status>.png`
+
+For every candidate that is visualised, the script also writes a plain-text (`.txt`) file in the same directory as the candidate's `.h5` file. This file contains key-value pairs for both the observation and candidate-specific metadata.
 
 ## License
 

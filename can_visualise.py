@@ -30,6 +30,7 @@ def setFonts(fontsize=18, axisLW=1, ticksize=5, tick_direction='out', padding=5,
     rc('mathtext', fontset='custom', rm='serif')                                                # raw text in math environment will be set to serif
 
 def write_txt(obs_metadata: dict, cand_metadata: dict, file_path: Path):
+    """Writes candidate and observation metadata to a text file."""
     ra = obs_metadata['ra'] * 12 / pi
     ra_h = int(ra)
     ra = (ra - ra_h) * 60
@@ -223,7 +224,7 @@ def quickly_plot(
     data_dir: Annotated[Path, Parameter(name=["-d", "--data-dir"], help="Path to the root `FRBPipeData` directory, which contains the `BMxx` subdirectories. Required if `-o` is not provided.")] = None,
     zoom: Annotated[bool, Parameter(name=["-z", "--zoom"], help="(Optional) If specified, the script will zoom in on the central part of the plots.")] = False,
 ):
-    """Generate feature plots of all the triggered candidates. Either --obs-dir or both --csv-file and --data-dir must be provided."""
+    """Quickly generate feature plots of all the triggered candidates if their buffer count directories are known. Either --obs-dir or both --csv-file and --data-dir must be provided."""
     if obs_dir is None and (csv_file is None or data_dir is None):
         raise ValueError("Either --obs-dir or both --csv-file and --data-dir must be provided.")
     else:

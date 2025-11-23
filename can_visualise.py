@@ -176,7 +176,7 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
         dm_extent = [cand_metadata['lodm'], cand_metadata['hidm']]
 
         fig = figure(figsize=(16, 12))
-        fig.suptitle(f"Time of arrival: {cand_metadata['tbegist']}; Probability: {cand_metadata['probability']:.2f}")
+        fig.suptitle(f"GTAC: {obs_metadata['gtaccode']}; Time of arrival: {cand_metadata['tbegist']}; Probability: {cand_metadata['probability']:.2f}")
         gs = fig.add_gridspec(2, 2, height_ratios=[1, 3])
         gs1 = gs[1, 0].subgridspec(2, 1, hspace=0, height_ratios=[1, 2])
         axtab_L = fig.add_subplot(gs[0, 0])
@@ -184,7 +184,6 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
         axbtm = fig.add_subplot(gs1[1, 0])
         btm = axbtm.get_position()
         axtop = fig.add_subplot(gs1[0, 0], sharex=axbtm, box_aspect=btm.height / 1.99 / btm.width) # Share x-axis with axbtm
-        top = axtop.get_position()
         axright = fig.add_subplot(gs[1, 1])
 
         # top: observation and candidate metadata
@@ -197,7 +196,7 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
 
         # bottom left: pulse profile and freq-time
         axbtm.minorticks_on()
-        im1 = axbtm.imshow(dyn_spec, aspect=(2 * delta_t_ms) / (round(obs_metadata['fh']) - round(obs_metadata['fl'])), extent=[*time_extent, *freq_extent])
+        axbtm.imshow(dyn_spec, aspect=(2 * delta_t_ms) / (round(obs_metadata['fh']) - round(obs_metadata['fl'])), extent=[*time_extent, *freq_extent])
         axtop.plot(linspace(*time_extent, len(mean_profile)), mean_profile)
         axtop.minorticks_on()
         axtop.tick_params(which='both', top=True, labeltop=False, bottom=False, labelbottom=False, left=False, labelleft=False)
@@ -207,7 +206,7 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
         axbtm.set_xlabel(r'$\Delta$t (ms)')
 
         # bottom right: dm-time image
-        im2 = axright.imshow(data_dm_time, aspect=(2 * delta_t_ms) / (cand_metadata['hidm'] - cand_metadata['lodm']), extent=[*time_extent, *dm_extent])
+        axright.imshow(data_dm_time, aspect=(2 * delta_t_ms) / (cand_metadata['hidm'] - cand_metadata['lodm']), extent=[*time_extent, *dm_extent])
         axright.minorticks_on()
         axright.grid(True, alpha=0.25)
         axright.set_ylabel(r'DM ($\rm pc \cdot cm^{-3}$)')

@@ -45,7 +45,7 @@ def write_txt(obs_metadata: dict, cand_metadata: dict, file_path: Path):
     dec_s = (dec - dec_m) * 60
     dec_str = f"{dec_h}d{abs(dec_m)}m{abs(dec_s):.2f}s"
 
-    beam = obs_metadata['beamid'] * obs_metadata['nbeamspernode'] + obs_metadata['beamid']
+    beam = obs_metadata['hostid'] * obs_metadata['nbeamspernode'] + obs_metadata['beamid']
 
     beam_ra = cand_metadata['ra'] * 12 / pi
     beam_ra_h = int(beam_ra)
@@ -61,24 +61,38 @@ def write_txt(obs_metadata: dict, cand_metadata: dict, file_path: Path):
     beam_dec_s = (beam_dec - beam_dec_m) * 60
     beam_dec_str = f"{beam_dec_h}d{abs(beam_dec_m)}m{abs(beam_dec_s):.2f}s"
 
-    labels = ['source','ra_j2000','dec_j2000','beam_no','burst_ra','burst_dec','mjd','toa','dm','snr','width','t_samp','freq_low','freq_high','band_width','probability']
+    labels = ['source',
+              'ra_j2000','dec_j2000',
+              'beam_no',
+              'burst_ra',
+              'burst_dec',
+              'mjd',
+              'toa',
+              'dm',
+              'snr',
+              'width',
+              't_samp',
+              'freq_low',
+              'freq_high',
+              'band_width',
+              'probability']
 
     fields = [str(obs_metadata['source']),
-                ra_str,
-                dec_str,
-                str(beam),
-                beam_ra_str,
-                beam_dec_str,
-                str(cand_metadata['mjd']),
-                f"{cand_metadata['tbegist']}",
-                f"{cand_metadata['dm']}",
-                f"{cand_metadata['snr']}",
-                f"{cand_metadata['width']}",
-                f"{obs_metadata['dt']}",
-                str(round(obs_metadata['fl'])),
-                str(round(obs_metadata['fh'])),
-                str(obs_metadata['bw']),
-                f"{cand_metadata['probability']:.2f}"]
+              ra_str,
+              dec_str,
+              str(beam),
+              beam_ra_str,
+              beam_dec_str,
+              str(cand_metadata['mjd']),
+              f"{cand_metadata['tbegist']}",
+              f"{cand_metadata['dm']}",
+              f"{cand_metadata['snr']}",
+              f"{cand_metadata['width']}",
+              f"{obs_metadata['dt']}",
+              str(round(obs_metadata['fl'])),
+              str(round(obs_metadata['fh'])),
+              str(obs_metadata['bw']),
+              f"{cand_metadata['probability']:.2f}"]
 
     out_lines = []
     for k, v in zip(labels, fields):
@@ -118,6 +132,8 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
     with File(file_path, 'r') as f:
         cand_metadata = dict(f.attrs)
         obs_metadata = dict(f['extras'].attrs)
+        cand_metadata['width'] *= 1e6
+        obs_metadata['dt'] *= 1e6
         write_txt(obs_metadata, cand_metadata, file_path.parent / (file_path.stem + ".txt"))
         ra = obs_metadata['ra'] * 12 / pi
         ra_h = int(ra)
@@ -132,7 +148,8 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
         dec_s = (dec - dec_m) * 60
         dec_str = f"{dec_h}^{{\circ}}\ {abs(dec_m)}\ m\ {abs(dec_s):.2f}\ s"
 
-        beam = obs_metadata['beamid'] * obs_metadata['nbeamspernode'] + obs_metadata['beamid']
+        beam = obs_metadata['hostid'] * obs_metadata['nbeamspernode'] + obs_metadata['beamid']
+
         beam_ra = cand_metadata['ra'] * 12 / pi
         beam_ra_h = int(beam_ra)
         beam_ra = (beam_ra - beam_ra_h) * 60
@@ -155,8 +172,8 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
                     [rf"$\rm {cand_metadata['mjd']}$"]]
         fields_R = [[rf"$\rm {cand_metadata['dm']:.3f}\ pc \cdot cm^{{-3}}$"],
                     [rf"$\rm {cand_metadata['snr']:.3f}$"],
-                    [rf"$\rm {cand_metadata['width'] * 1e6}\ \mu s$"],
-                    [rf"$\rm {obs_metadata['dt'] * 1e6}\ \mu s$"],
+                    [rf"$\rm {cand_metadata['width']}\ \mu s$"],
+                    [rf"$\rm {obs_metadata['dt']}\ \mu s$"],
                     [rf"$\rm {round(obs_metadata['fl'])}\ MHz$"],
                     [rf"$\rm {round(obs_metadata['fh'])}\ MHz$"],
                     [rf"$\rm {obs_metadata['bw']}\ MHz$"]]
@@ -170,11 +187,12 @@ def visualise(file_path: Path, output_path: Path, zoom: bool):
         mean_profile = dyn_spec.mean(axis=0)
 
         # Calculate axis ranges from metadata
-        delta_t_ms = obs_metadata['dt'] * cand_metadata['tbin'] * 128 * 1e3
+        delta_t_ms = obs_metadata['dt'] * cand_metadata['tbin'] * 128 / 1e3
         time_extent = [-delta_t_ms, delta_t_ms]
         freq_extent = [round(obs_metadata['fl']), round(obs_metadata['fh'])]
         dm_extent = [cand_metadata['lodm'], cand_metadata['hidm']]
 
+        # Initialise figure and axes
         fig = figure(figsize=(16, 12))
         fig.suptitle(f"GTAC: {obs_metadata['gtaccode']}; Time of arrival: {cand_metadata['tbegist']}; Probability: {cand_metadata['probability']:.2f}")
         gs = fig.add_gridspec(2, 2, height_ratios=[1, 3])
